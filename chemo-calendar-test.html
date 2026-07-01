@@ -220,7 +220,29 @@
       left:50% !important;
       top:50% !important;
       transform:translate(-50%,-50%) !important;
+      padding-top:40px;
     }
+    #tooltip .tt-close{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:absolute;
+      top:2px;
+      right:2px;
+      width:44px;
+      height:44px;
+      border:none;
+      border-radius:50%;
+      background:rgba(255,255,255,0.15);
+      color:#fff;
+      font-size:20px;
+      line-height:1;
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+    }
+  }
+  #tooltip .tt-close{
+    display:none;
   }
   #tooltip .tt-title{
     font-size:14px;
@@ -602,7 +624,7 @@ function renderCalendar(){
 
             td.addEventListener('mouseenter', (e)=>showTooltip(e, phase, info.dayNum, crf));
             td.addEventListener('mousemove', moveTooltip);
-            td.addEventListener('mouseleave', hideTooltip);
+            td.addEventListener('mouseleave', ()=>{ if(!isMobileView()) hideTooltip(); });
           }
         }
         tr.appendChild(td);
@@ -626,7 +648,8 @@ function isMobileView(){
 let suppressBackdropClose = false;
 
 function showTooltip(e, phase, dayNum, crf){
-  let html = '<span class="tt-range">化療第 '+dayNum+' 天 ・ '+phase.range+'</span>';
+  let html = '<button class="tt-close" onclick="hideTooltip()" aria-label="關閉">✕</button>';
+  html += '<span class="tt-range">化療第 '+dayNum+' 天 ・ '+phase.range+'</span>';
   html += '<span class="tt-title">'+phase.title+'</span>';
   html += '<div>'+phase.status+'</div>';
   html += '<div style="margin-top:8px;">'+phase.care+'</div>';
