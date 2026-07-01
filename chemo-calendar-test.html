@@ -623,6 +623,8 @@ function isMobileView(){
   return window.innerWidth <= 640;
 }
 
+let suppressBackdropClose = false;
+
 function showTooltip(e, phase, dayNum, crf){
   let html = '<span class="tt-range">化療第 '+dayNum+' 天 ・ '+phase.range+'</span>';
   html += '<span class="tt-title">'+phase.title+'</span>';
@@ -642,6 +644,11 @@ function showTooltip(e, phase, dayNum, crf){
   tooltip.style.display = 'block';
   if(isMobileView()){
     tooltipBackdrop.style.display = 'block';
+    // 手指點擊時 iOS Safari 會在同一次點擊尾端補發 click 事件，
+    // 若剛好落在此時才顯示的 backdrop 上會立刻觸發關閉造成閃爍，
+    // 短暫忽略關閉事件讓同一次點擊完整結束。
+    suppressBackdropClose = true;
+    setTimeout(()=>{ suppressBackdropClose = false; }, 300);
   } else {
     moveTooltip(e);
   }
@@ -664,8 +671,13 @@ function hideTooltip(){
   tooltipBackdrop.style.display = 'none';
 }
 
-tooltipBackdrop.addEventListener('click', hideTooltip);
-tooltipBackdrop.addEventListener('touchstart', hideTooltip, {passive:true});
+function closeTooltipFromBackdrop(){
+  if(suppressBackdropClose) return;
+  hideTooltip();
+}
+
+tooltipBackdrop.addEventListener('click', closeTooltipFromBackdrop);
+tooltipBackdrop.addEventListener('touchstart', closeTooltipFromBackdrop, {passive:true});
 
 // 顯示今天日期
 (function(){
