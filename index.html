@@ -203,6 +203,25 @@
     z-index:999;
     display:none;
   }
+  #tooltipBackdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.35);
+    z-index:998;
+    display:none;
+  }
+  @media (max-width:640px){
+    #tooltip{
+      max-width:none;
+      width:min(320px, 88vw);
+      max-height:75vh;
+      overflow-y:auto;
+      pointer-events:auto;
+      left:50% !important;
+      top:50% !important;
+      transform:translate(-50%,-50%) !important;
+    }
+  }
   #tooltip .tt-title{
     font-size:14px;
     font-weight:700;
@@ -268,6 +287,7 @@
 <div id="calendarContainer"></div>
 <div id="emptyState">請先選擇化療開始日期，日曆將顯示在這裡。</div>
 
+<div id="tooltipBackdrop"></div>
 <div id="tooltip"></div>
 
 <script>
@@ -473,6 +493,11 @@ function renderCalendar(){
 }
 
 const tooltip = document.getElementById('tooltip');
+const tooltipBackdrop = document.getElementById('tooltipBackdrop');
+
+function isMobileView(){
+  return window.innerWidth <= 640;
+}
 
 function showTooltip(e, phase, dayNum, crf){
   let html = '<span class="tt-range">化療第 '+dayNum+' 天 ・ '+phase.range+'</span>';
@@ -491,10 +516,15 @@ function showTooltip(e, phase, dayNum, crf){
   }
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
-  moveTooltip(e);
+  if(isMobileView()){
+    tooltipBackdrop.style.display = 'block';
+  } else {
+    moveTooltip(e);
+  }
 }
 
 function moveTooltip(e){
+  if(isMobileView()) return; // 手機版由 CSS 置中，不跟隨手指/游標
   const offset = 16;
   let x = e.clientX + offset;
   let y = e.clientY + offset;
@@ -507,7 +537,11 @@ function moveTooltip(e){
 
 function hideTooltip(){
   tooltip.style.display = 'none';
+  tooltipBackdrop.style.display = 'none';
 }
+
+tooltipBackdrop.addEventListener('click', hideTooltip);
+tooltipBackdrop.addEventListener('touchstart', hideTooltip, {passive:true});
 
 // 顯示今天日期
 (function(){
