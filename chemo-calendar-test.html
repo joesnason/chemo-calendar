@@ -272,7 +272,11 @@
   <label for="startDate">化療開始日期：</label>
   <input type="date" id="startDate">
   <button onclick="renderCalendar()">開始排程</button>
+  <button id="exportBtn" onclick="exportICS()" style="display:none;">匯出至 Google 日曆 (.ics)</button>
   <span class="reset-link" onclick="clearAll()">重新選擇 / 清除</span>
+  <div id="exportHint" style="display:none; margin-top:10px; font-size:12.5px; color:var(--muted); text-align:left;">
+    下載 .ics 檔後：前往 <strong>Google 日曆網頁版</strong>（calendar.google.com）→ 右上角齒輪「設定」→ 左側選單「匯入與匯出」→「匯入」，選擇剛下載的檔案並指定要加入的日曆，即可一次匯入全部 21 天行程。建議匯入到另外新建的日曆，方便之後整批刪除或重新匯入。
+  </div>
 </div>
 
 <div class="legend" id="legend">
@@ -372,12 +376,128 @@ function isSameDate(a,b){
   return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
 }
 
+// ---------- ICS EXPORT (Google 日曆) ----------
+
+let lastRenderedStart = null;
+
+function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+
+function formatICSDate(d){
+  return d.getFullYear() + pad2(d.getMonth()+1) + pad2(d.getDate());
+}
+
+function formatICSDateTimeUTC(d){
+  return d.getUTCFullYear() + pad2(d.getUTCMonth()+1) + pad2(d.getUTCDate()) + 'T' +
+         pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
+}
+
+function escapeICSText(text){
+  return String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r\n|\r|\n/g, '\\n');
+}
+
+function foldICSLine(line){
+  const bytes = new TextEncoder().encode(line);
+  if(bytes.length <= 75) return line;
+
+  const folded = [];
+  let start = 0, limit = 75;
+  while(start < bytes.length){
+    let end = Math.min(start+limit, bytes.length);
+    while(end < bytes.length && (bytes[end] & 0xC0) === 0x80) end--;
+    folded.push(new TextDecoder().decode(bytes.slice(start, end)));
+    start = end;
+    limit = 74;
+  }
+  return folded.join('\r\n ');
+}
+
+function buildDayDescription(phase, dayNum, crf){
+  const parts = [];
+  parts.push('化療第 '+dayNum+' 天・'+phase.range);
+  parts.push(phase.title);
+  parts.push(phase.status);
+  parts.push(phase.care);
+  if(phase.alert) parts.push('⚠ 發熱注意：'+phase.alert);
+  if(crf){
+    parts.push('😴 '+crf.title+'（'+crf.range+'）');
+    parts.push(crf.cause);
+    parts.push(crf.symptom);
+  }
+  return parts.join('\n\n');
+}
+
+function buildICS(startDate){
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//chemo-calendar//21-day-care-calendar//ZH-TW',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH'
+  ];
+
+  const dtstamp = formatICSDateTimeUTC(new Date());
+  const startKey = formatICSDate(startDate);
+
+  for(let i=0; i<21; i++){
+    const dt = new Date(startDate);
+    dt.setDate(startDate.getDate()+i);
+    const dayNum = i+1;
+    const ph = phaseForDay(dayNum);
+    const phase = phaseData[ph.key];
+    const crf = crfForDay(dayNum);
+
+    const dtEndDate = new Date(dt);
+    dtEndDate.setDate(dt.getDate()+1);
+
+    lines.push('BEGIN:VEVENT');
+    lines.push(foldICSLine('UID:chemo-'+startKey+'-day'+dayNum+'@chemo-calendar.local'));
+    lines.push('DTSTAMP:'+dtstamp);
+    lines.push('DTSTART;VALUE=DATE:'+formatICSDate(dt));
+    lines.push('DTEND;VALUE=DATE:'+formatICSDate(dtEndDate));
+    lines.push(foldICSLine('SUMMARY:'+escapeICSText('化療第 '+dayNum+' 天・'+phase.title)));
+    lines.push(foldICSLine('DESCRIPTION:'+escapeICSText(buildDayDescription(phase, dayNum, crf))));
+    lines.push('TRANSP:TRANSPARENT');
+    lines.push('END:VEVENT');
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n') + '\r\n';
+}
+
+function downloadICS(icsString, filename){
+  const blob = new Blob([icsString], {type: 'text/calendar;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function exportICS(){
+  if(!lastRenderedStart){
+    alert('請先選擇化療開始日期並按「開始排程」，才能匯出日曆。');
+    return;
+  }
+  const ics = buildICS(lastRenderedStart);
+  downloadICS(ics, 'chemo-calendar-'+formatICSDate(lastRenderedStart)+'.ics');
+}
+
 const weekNames = ['日','一','二','三','四','五','六'];
 
 function clearAll(){
   document.getElementById('startDate').value='';
   document.getElementById('calendarContainer').innerHTML='';
   document.getElementById('emptyState').style.display='block';
+  lastRenderedStart = null;
+  document.getElementById('exportBtn').style.display = 'none';
+  document.getElementById('exportHint').style.display = 'none';
 }
 
 function renderCalendar(){
@@ -386,6 +506,10 @@ function renderCalendar(){
   const [y,m,d] = val.split('-').map(Number);
   const startDate = new Date(y, m-1, d);
   const today = new Date();
+
+  lastRenderedStart = startDate;
+  document.getElementById('exportBtn').style.display = 'inline-block';
+  document.getElementById('exportHint').style.display = 'block';
 
   // build day-> info map keyed by yyyy-mm-dd
   const dayMap = {};
