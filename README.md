@@ -9,7 +9,7 @@
 - 疊加癌因性疲憊（CRF）三波高峰資訊（急性疲憊期、骨髓抑制期、回溫期）
 - 點選/滑鼠移到某一天，顯示當天詳細的身體狀況說明、照護重點，以及白血球低點期間的發燒急症警示
 - 標示「今天」方便對照目前所處階段
-- （測試版）一鍵匯出 `.ics` 行事曆檔案，可直接匯入 Google 日曆
+- 一鍵匯出 `.ics` 行事曆檔案，可直接匯入 Google 日曆
 
 ## 使用方式
 
@@ -24,11 +24,11 @@
 | 檔案 | 說明 |
 |---|---|
 | `index.html` | 正式版 |
-| `chemo-calendar-test.html` | 測試版，包含手機版 tooltip 優化，以及匯出 Google 日曆（.ics）功能 |
+| `chemo-calendar-test.html` | 開發用測試版，內容與 `index.html` 同步，作為下一版變更的暫存區 |
 
-## 匯出至 Google 日曆（測試版）
+## 匯出至 Google 日曆
 
-在 `chemo-calendar-test.html` 排好日曆後：
+在 `index.html` 排好日曆後：
 
 1. 點擊「匯出至 Google 日曆 (.ics)」下載檔案
 2. 前往 Google 日曆網頁版（calendar.google.com）
